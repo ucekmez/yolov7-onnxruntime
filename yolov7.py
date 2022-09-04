@@ -1,8 +1,5 @@
-import time
-import cv2
-import numpy as np
-import onnxruntime
-
+import time, cv2, onnxruntime, requests, base64, numpy as np
+from imread_from_url import imread_from_url
 
 class yolov7:
 
@@ -28,8 +25,24 @@ class yolov7:
         self.initialize_model(path)
 
     def __call__(self, image):
-        if type(image) == str: # means that it's a path
+        if type(image) == str and (image.startswith("http://") or image.startswith("https://")): # assumes that it's an image url
+            image = imread_from_url(image)
+        elif type(image) == str and image.startswith("/9j/"): # assumes that it's a base64 encoded image
+            im_bytes = base64.b64decode(image)
+            im_arr = np.frombuffer(im_bytes, dtype=np.uint8)
+            image = cv2.imdecode(im_arr, flags=cv2.IMREAD_COLOR)
+        elif type(image) == str and image.startswith("data:image/") and "/9j/" in image: # assumes that it's a base64 encoded image (with format attached)
+            image = image.split(",")[1]
+            
+            # after this line, we're assuming it's a base64 encoded image
+            im_bytes = base64.b64decode(image)
+            im_arr = np.frombuffer(im_bytes, dtype=np.uint8)
+            image = cv2.imdecode(im_arr, flags=cv2.IMREAD_COLOR)
+        elif type(image) == str: # assumes that it's a local path
             image = cv2.imread(image)
+            
+        self.current_image = image
+        self.current_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2RGB)
             
         return self.detect_objects(image)
 
